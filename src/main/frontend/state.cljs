@@ -104,6 +104,8 @@
 
      :config                                {}
      :block/component-editing-mode?         false
+     :editor/op                             nil
+     :editor/latest-op                      nil
      :editor/hidden-editors                 #{}             ;; page names
      :editor/draw-mode?                     false
      :editor/action                         nil
@@ -121,6 +123,9 @@
      :editor/args                           nil
      :editor/on-paste?                      false
      :editor/last-key-code                  nil
+
+     ;; Stores deleted refed blocks, indexed by repo
+     :editor/last-replace-ref-content-tx    nil
 
      ;; for audio record
      :editor/record-status                  "NONE"
@@ -259,9 +264,9 @@
      ;;                :file-sync/progress {}
      ;;                :file-sync/start-time {}
      ;;                :file-sync/last-synced-at {}}
-     :file-sync/graph-state                 {:current-graph-uuid nil
+     :file-sync/graph-state                 {:current-graph-uuid nil}
                                              ;; graph-uuid -> ...
-                                             }
+
      :user/info                             {:UserGroups (storage/get :user-groups)}
      :encryption/graph-parsing?             false
 
@@ -277,7 +282,9 @@
      :whiteboard/onboarding-tour?           (or (storage/get :whiteboard-onboarding-tour?) false)
      :whiteboard/last-persisted-at          {}
      :whiteboard/pending-tx-data            {}
-     :history/page-only-mode?               false})))
+     :history/page-only-mode?               false
+     ;; db tx-id -> editor cursor
+     :history/tx->editor-cursor             {}})))
 
 ;; Block ast state
 ;; ===============
@@ -1689,13 +1696,18 @@ Similar to re-frame subscriptions"
 
 ;; TODO: Move those to the uni `state`
 
-(defonce editor-op (atom nil))
 (defn set-editor-op!
   [value]
-  (reset! editor-op value))
+  (set-state! :editor/op value)
+  (when value (set-state! :editor/latest-op value)))
+
 (defn get-editor-op
   []
-  @editor-op)
+  (:editor/op @state))
+
+(defn get-editor-latest-op
+  []
+  (:editor/latest-op @state))
 
 (defn get-events-chan
   []
